@@ -15,7 +15,7 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOriginPatterns(List.of("https://kdkce.openelective.click","https://*.lite.vusercontent.net", "https://frank-bee-only.ngrok-free.app","https://v0-open-elective-fcfs-20ihgv76v.vercel.app"));
+        config.setAllowedOriginPatterns(List.of()); //Origins from where request should be accepted
         config.setAllowedHeaders(List.of(
 
                 "Authorization",

@@ -16,9 +16,11 @@ import java.time.Duration;
 
 @Service
 public class S3Service {
+    @Value{"${S3_BUCKET_NAME})
+    String s3Bucket;
 
 
-    private final String bucketName = "kdkce-openelective-reports";
+    private final String bucketName = s3Bucket ;
     private final S3Client s3Client;
     private final S3Presigner presigner;
 
