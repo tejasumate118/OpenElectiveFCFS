@@ -6,10 +6,7 @@ import edu.kdkce.openelectivefcfs.src.model.AllocationCycle;
 import edu.kdkce.openelectivefcfs.src.model.Elective;
 import edu.kdkce.openelectivefcfs.src.model.PastAllocation;
 import edu.kdkce.openelectivefcfs.src.model.Student;
-import edu.kdkce.openelectivefcfs.src.repository.AllocationCycleRepository;
-import edu.kdkce.openelectivefcfs.src.repository.ElectiveRepository;
-import edu.kdkce.openelectivefcfs.src.repository.PastAllocationRepository;
-import edu.kdkce.openelectivefcfs.src.repository.UserRepository;
+import edu.kdkce.openelectivefcfs.src.repository.*;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -18,24 +15,27 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class ReportService {
-    private final UserRepository userRepository;
     private final ElectiveRepository electiveRepository;
     private final PastAllocationRepository pastAllocationRepository;
     private final AllocationCycleRepository allocationCycleRepository;
+    private final StudentRepository studentRepository;
+    private final S3Service s3Service;
 
     @Autowired
-    public ReportService(UserRepository userRepository, ElectiveRepository electiveRepository, PastAllocationRepository pastAllocationRepository, AllocationCycleRepository allocationCycleRepository) {
-        this.userRepository = userRepository;
+    public ReportService(ElectiveRepository electiveRepository, PastAllocationRepository pastAllocationRepository, AllocationCycleRepository allocationCycleRepository, StudentRepository studentRepository, S3Service s3Service) {
         this.electiveRepository = electiveRepository;
         this.pastAllocationRepository = pastAllocationRepository;
         this.allocationCycleRepository = allocationCycleRepository;
+        this.studentRepository = studentRepository;
+        this.s3Service = s3Service;
     }
 
     private void createReportHeader(Sheet sheet, String title) {
@@ -71,13 +71,11 @@ public class ReportService {
     }
 
     public byte[] generateCompleteAllocationReport() {
-        List<Student> students = userRepository.findAll()
+        List<Student> students = studentRepository.findAll()
                 .stream()
-                .filter(user -> user instanceof Student)
-                .filter(user -> ((Student) user).getEnabled())
-                .filter(user -> ((Student) user).getElective() != null)
-                .map(user -> (Student) user)
-                .sorted((u1, u2) -> u1.getEmail().compareToIgnoreCase(u2.getEmail()))
+                .filter(Student::getIsEnabled) // Assuming `isEnabled()` is the correct method
+                .filter(student -> student.getElectiveId() != null)
+                .sorted(Comparator.comparing(student -> student.getEmail().toLowerCase()))
                 .toList();
 
         try (Workbook workbook = new XSSFWorkbook();
@@ -121,13 +119,21 @@ public class ReportService {
                 cell3.setCellValue(student.getDepartment().name());
                 cell3.setCellStyle(cellStyle);
 
+                Elective elective = electiveRepository.findById(student.getElectiveId())
+                        .orElseThrow(() -> new RuntimeException("Elective not found"));
+
                 Cell cell4 = row.createCell(4);
-                cell4.setCellValue(student.getElective().getName());
+                cell4.setCellValue(elective.getName());
                 cell4.setCellStyle(cellStyle);
 
                 Cell cell5 = row.createCell(5);
-                cell5.setCellValue(student.getElective().getDepartmentName().name());
+                cell5.setCellValue(elective.getDepartmentName().name());
                 cell5.setCellStyle(cellStyle);
+            }
+            sheet.createFreezePane(0, 3);
+
+            for (int i = 0; i < columns.length; i++) {
+                sheet.autoSizeColumn(i);
             }
 
             workbook.write(out);
@@ -138,12 +144,10 @@ public class ReportService {
     }
 
     public byte[] generateUnallocatedStudentsReport() {
-        List<Student> students = userRepository.findAll()
+        List<Student> students = studentRepository.findAll()
                 .stream()
-                .filter(user -> user instanceof Student)
-                .filter(user -> ((Student) user).getEnabled())
-                .filter(user -> ((Student) user).getElective() == null)
-                .map(user -> (Student) user)
+                .filter(Student::getIsEnabled)
+                .filter(student -> student.getElectiveId() == null)
                 .sorted((u1, u2) -> u1.getEmail().compareToIgnoreCase(u2.getEmail()))
                 .toList();
 
@@ -188,6 +192,11 @@ public class ReportService {
                 cell3.setCellValue(student.getDepartment().name());
                 cell3.setCellStyle(cellStyle);
             }
+            sheet.createFreezePane(0, 3);
+
+            for (int i = 0; i < columns.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
 
             workbook.write(out);
             return out.toByteArray();
@@ -197,13 +206,11 @@ public class ReportService {
     }
 
     public byte[] generateDepartmentOutgoingReport() {
-        List<Student> students = userRepository.findAll()
+        List<Student> students = studentRepository.findAll()
                 .stream()
-                .filter(user -> user instanceof Student)
-                .filter(user -> ((Student) user).getEnabled())
-                .filter(user -> ((Student) user).getElective() != null)
-                .map(user -> (Student) user)
-                .sorted((u1, u2) -> u1.getEmail().compareToIgnoreCase(u2.getEmail()))
+                .filter(Student::getIsEnabled)
+                .filter(student -> student.getElectiveId() != null)
+                .sorted(Comparator.comparing(Student::getClassRollNumber))
                 .toList();
 
         try (Workbook workbook = new XSSFWorkbook();
@@ -219,7 +226,7 @@ public class ReportService {
                 headerCellStyle.setFont(headerFont);
 
                 Row headerRow = sheet.createRow(2);
-                String[] columns = {"Name", "Email", "Contact No.", "Allocated Elective", "Elective Department"};
+                String[] columns = {"Roll number","KDK ID","Name", "Email", "Contact No.", "Allocated Elective", "Elective Department"};
                 for (int i = 0; i < columns.length; i++) {
                     Cell cell = headerRow.createCell(i);
                     cell.setCellValue(columns[i]);
@@ -231,28 +238,44 @@ public class ReportService {
                 for (Student student : students) {
                     if (student.getDepartment() == department) {
                         Row row = sheet.createRow(rowNum++);
+
                         Cell cell0 = row.createCell(0);
-                        cell0.setCellValue(student.getName());
+                        cell0.setCellValue(student.getClassRollNumber());
                         cell0.setCellStyle(cellStyle);
 
                         Cell cell1 = row.createCell(1);
-                        cell1.setCellValue(student.getEmail());
+                        cell1.setCellValue(student.getRollNumber()); // roll number is the KDK ID
                         cell1.setCellStyle(cellStyle);
 
                         Cell cell2 = row.createCell(2);
-                        if (student.getContactNumber() != null) {
-                            cell2.setCellValue(student.getContactNumber());
-                        }
+                        cell2.setCellValue(student.getName());
                         cell2.setCellStyle(cellStyle);
 
                         Cell cell3 = row.createCell(3);
-                        cell3.setCellValue(student.getElective().getName());
+                        cell3.setCellValue(student.getEmail());
                         cell3.setCellStyle(cellStyle);
 
                         Cell cell4 = row.createCell(4);
-                        cell4.setCellValue(student.getElective().getDepartmentName().name());
+                        if (student.getContactNumber() != null) {
+                            cell4.setCellValue(student.getContactNumber());
+                        }
                         cell4.setCellStyle(cellStyle);
+
+                        Elective elective = electiveRepository.getElectivesById(student.getElectiveId());
+
+                        Cell cell5 = row.createCell(5);
+                        cell5.setCellValue(elective.getName());
+                        cell5.setCellStyle(cellStyle);
+
+                        Cell cell6 = row.createCell(6);
+                        cell6.setCellValue(elective.getDepartmentName().name());
+                        cell6.setCellStyle(cellStyle);
                     }
+                }
+                sheet.createFreezePane(0, 3);
+
+                for (int i = 0; i < columns.length; i++) {
+                    sheet.autoSizeColumn(i);
                 }
             }
 
@@ -264,11 +287,10 @@ public class ReportService {
     }
 
     public byte[] generateDepartmentIncomingReport() {
-        List<Student> students = userRepository.findAll()
+        List<Student> students = studentRepository.findAll()
                 .stream()
-                .filter(user -> user instanceof Student)
-                .filter(user -> ((Student) user).getEnabled())
-                .filter(user -> ((Student) user).getElective() != null)
+                .filter(Student::getIsEnabled)
+                .filter(student -> student.getElectiveId() != null)
                 .map(user -> (Student) user)
                 .sorted((u1, u2) -> u1.getEmail().compareToIgnoreCase(u2.getEmail()))
                 .toList();
@@ -297,7 +319,7 @@ public class ReportService {
                 CellStyle cellStyle = createTableCellStyle(workbook);
                 int rowNum = 3;
                 for (Student student : students) {
-                    if (student.getElective().equals(elective)) {
+                    if (student.getElectiveId().equals(elective.getId())) {
                         Row row = sheet.createRow(rowNum++);
                         Cell cell0 = row.createCell(0);
                         cell0.setCellValue(student.getName());
@@ -318,13 +340,18 @@ public class ReportService {
                         cell3.setCellStyle(cellStyle);
 
                         Cell cell4 = row.createCell(4);
-                        cell4.setCellValue(student.getElective().getName());
+                        cell4.setCellValue(elective.getName());
                         cell4.setCellStyle(cellStyle);
 
                         Cell cell5 = row.createCell(5);
-                        cell5.setCellValue(student.getElective().getDepartmentName().name());
+                        cell5.setCellValue(elective.getDepartmentName().name());
                         cell5.setCellStyle(cellStyle);
                     }
+                }
+                sheet.createFreezePane(0, 3);
+
+                for (int i = 0; i < columns.length; i++) {
+                    sheet.autoSizeColumn(i);
                 }
             }
 
@@ -336,14 +363,14 @@ public class ReportService {
     }
 
    //For archived reports
-   public byte[] getIncomingReportsForCycle(Long cycleId) {
+   public byte[] getIncomingReportsForCycle(String cycleId) {
        // Get students form the particular cycle
        // Iterate over Departments and create a sheet for each department
        // Each sheet will have students of the other department
        AllocationCycle allocationCycle = allocationCycleRepository.findById(cycleId)
                .orElseThrow(() -> new RuntimeException("Allocation cycle not found"));
 
-       List<PastAllocation> pastAllocationList = pastAllocationRepository.findByAllocationCycle(allocationCycle);
+       List<PastAllocation> pastAllocationList = pastAllocationRepository.findByAllocationCycleId(allocationCycle.getId());
        try (Workbook workbook = new XSSFWorkbook();
             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
@@ -396,6 +423,11 @@ public class ReportService {
                        cell5.setCellStyle(cellStyle);
                    }
                }
+               sheet.createFreezePane(0, 3);
+
+               for (int i = 0; i < columns.length; i++) {
+                   sheet.autoSizeColumn(i);
+               }
            }
            workbook.write(out);
            return out.toByteArray();
@@ -405,7 +437,7 @@ public class ReportService {
        }
    }
 
-   public byte[] getOutgoingReportsForCycle(Long cycleId) {
+   public byte[] getOutgoingReportsForCycle(String cycleId) {
        // Get students form the particular cycle
        // Iterate over Departments and create a sheet for each department
        // Each sheet will have students of the other department
@@ -414,7 +446,7 @@ public class ReportService {
 
 
 
-       List<PastAllocation> pastAllocationList = pastAllocationRepository.findByAllocationCycle(allocationCycle);
+       List<PastAllocation> pastAllocationList = pastAllocationRepository.findByAllocationCycleId(allocationCycle.getId());
        try (Workbook workbook = new XSSFWorkbook();
             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
@@ -467,7 +499,13 @@ public class ReportService {
                        cell5.setCellStyle(cellStyle);
                    }
                }
+               sheet.createFreezePane(0, 3);
+
+               for (int i = 0; i < columns.length; i++) {
+                   sheet.autoSizeColumn(i);
+               }
            }
+
            workbook.write(out);
            return out.toByteArray();
        } catch (IOException e) {
@@ -485,4 +523,52 @@ public class ReportService {
                 ))
                 .toList();
     }
+
+    public String uploadDepartmentOutgoingReportAndGetLink() {
+        byte[] data = generateDepartmentOutgoingReport(); // already exists
+        return uploadReportAndGetLink("reports/Department_Wise_Outgoing_Report.xlsx", data);
+    }
+    private String uploadReportAndGetLink(String s3Key, byte[] data) {
+        try {
+            Path tempFile = Files.createTempFile("report-", ".xlsx");
+            Files.write(tempFile, data);
+            s3Service.uploadFile(s3Key, tempFile);
+            return s3Service.generatePresignedUrl(s3Key, Duration.ofMinutes(10));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload report", e);
+        }
+    }
+
+    public String uploadDepartmentIncomingReportAndGetLink() {
+        byte[] data = generateDepartmentIncomingReport();
+        return uploadReportAndGetLink("reports/Department_Wise_Incoming_Report.xlsx", data);
+    }
+    public String uploadCompleteAllocationReportAndGetLink() {
+        byte[] data = generateCompleteAllocationReport();
+        return uploadReportAndGetLink("reports/Complete_Allocation_Report.xlsx", data);
+    }
+    public String uploadUnallocatedStudentsReportAndGetLink() {
+        byte[] data = generateUnallocatedStudentsReport();
+        return uploadReportAndGetLink("reports/Unallocated_Students_Report.xlsx", data);
+    }
+    public String uploadArchivedReportAndGetLink(String cycleId, String reportType) {
+        byte[] reportData;
+
+        if ("outgoing".equalsIgnoreCase(reportType)) {
+            reportData = getOutgoingReportsForCycle(cycleId);
+        } else if ("incoming".equalsIgnoreCase(reportType)) {
+            reportData = getIncomingReportsForCycle(cycleId);
+        } else {
+            throw new IllegalArgumentException("Invalid report type");
+        }
+
+        AllocationCycle cycle = allocationCycleRepository.findById(cycleId)
+                .orElseThrow(() -> new RuntimeException("Cycle not found"));
+        String cycleName = cycle.getCycleName().replaceAll("[{}\"]", "").replace("cycleName:", "").trim();
+        String filename = cycleName + "_Department-Wise_" + reportType + "_Report.xlsx";
+        String s3Key = "archived-reports/" + filename;
+
+        return uploadReportAndGetLink(s3Key, reportData);
+    }
+
 }

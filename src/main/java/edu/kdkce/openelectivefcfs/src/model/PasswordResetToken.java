@@ -1,36 +1,45 @@
 package edu.kdkce.openelectivefcfs.src.model;
 
-import jakarta.persistence.*;
-
 import java.time.ZonedDateTime;
+import java.util.UUID;
 
-@Entity
+import edu.kdkce.openelectivefcfs.src.converter.ZonedDateTimeConverter;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbConvertedBy;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
+
+@DynamoDbBean
+/**
+ * Represents a password reset token for a user.
+ * This class contains the token, the user associated with it, and the expiry time of the token.
+ */
+
 public class PasswordResetToken {
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    Long id;
+    String id;
     String token;
-    @OneToOne
-    @JoinColumn(name = "user_id")
-    User user;
+    String userId;
     ZonedDateTime expiryTime;
 
     public PasswordResetToken() {}
 
-    public PasswordResetToken(String token, User user, ZonedDateTime zonedDateTime) {
+    public PasswordResetToken(String token, String userId, ZonedDateTime zonedDateTime) {
+        this.id = UUID.randomUUID().toString();
         this.token = token;
-        this.user = user;
+        this.userId = userId;
         this.expiryTime = zonedDateTime;
     }
 
-    public Long getId() {
+    @DynamoDbPartitionKey
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
+    @DynamoDbAttribute("token")
     public String getToken() {
         return token;
     }
@@ -38,15 +47,16 @@ public class PasswordResetToken {
     public void setToken(String token) {
         this.token = token;
     }
-
-    public User getUser() {
-        return user;
+    @DynamoDbAttribute("userId")
+    public String getUserId() {
+        return userId;
     }
 
-    public void setUser(User user) {
-        this.user = user;
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
-
+    @DynamoDbAttribute("expiryTime")
+    @DynamoDbConvertedBy(ZonedDateTimeConverter.class)
     public ZonedDateTime getExpiryTime() {
         return expiryTime;
     }

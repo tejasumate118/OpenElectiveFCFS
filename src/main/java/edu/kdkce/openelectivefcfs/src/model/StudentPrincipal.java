@@ -1,32 +1,31 @@
 package edu.kdkce.openelectivefcfs.src.model;
 
-
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.stream.Collectors;
 
-public class UserPrincipal implements UserDetails {
-    private final User user;
-    public UserPrincipal(User user) {
-        this.user=user;
+public class StudentPrincipal implements UserDetails {
+    private final Student student;
+
+    public StudentPrincipal(Student student) {
+        this.student = student;
     }
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return user.getRoles().stream()
+        return student.getRoles().stream()
                 .map(role -> (GrantedAuthority) role::toString)
                 .collect(Collectors.toList());
     }
-
     @Override
     public String getPassword() {
-        return user.getPassword();
+        return student.getPassword();
     }
 
     @Override
     public String getUsername() {
-        return user.getEmail();
+        return student.getEmail();
     }
 
     @Override
@@ -46,7 +45,6 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return student.getIsEnabled()!= null && student.getIsEnabled();
     }
-
 }

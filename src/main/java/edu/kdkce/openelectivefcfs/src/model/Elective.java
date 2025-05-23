@@ -1,36 +1,53 @@
 package edu.kdkce.openelectivefcfs.src.model;
-
 import edu.kdkce.openelectivefcfs.src.enums.DepartmentName;
-import jakarta.persistence.*;
+import software.amazon.awssdk.enhanced.dynamodb.extensions.annotations.DynamoDbVersionAttribute;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbIgnore;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
 
-import java.util.HashSet;
 import java.util.Set;
 
-@Entity
+/**
+ * Represents an elective course in the system.
+ * This class is used to store and manage information about elective courses.
+ */
+@DynamoDbBean
 public class Elective {
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private Integer id;
+
+    private String id;
     private String name;
     private DepartmentName departmentName;
     private Integer maxCapacity;
     private Integer capacity;
     private String description;
-    @OneToMany(mappedBy = "elective")
-    private Set<Student> enrolledStudents = new HashSet<>();
+    private Set<String> enrolledStudentIds;
+    private Set<DepartmentName> allowedDepartments;
+    private Long version;
 
-    public boolean isFull() {
-        return enrolledStudents.size() >= maxCapacity;
+    /**
+     * Default constructor.
+     */
+    public Elective() {
+
     }
 
-    public Integer getId() {
+
+
+    @DynamoDbIgnore
+    public boolean isFull() {
+        return enrolledStudentIds.size() >= maxCapacity;
+    }
+
+    @DynamoDbPartitionKey
+    public String getId() {
         return id;
     }
 
-    public void setId(Integer id) {
+    public void setId(String id) {
         this.id = id;
     }
-
+    @DynamoDbAttribute("name")
     public String getName() {
         return name;
     }
@@ -39,6 +56,7 @@ public class Elective {
         this.name = name;
     }
 
+    @DynamoDbAttribute("departmentName")
     public DepartmentName getDepartmentName() {
         return departmentName;
     }
@@ -47,6 +65,7 @@ public class Elective {
         this.departmentName = departmentName;
     }
 
+    @DynamoDbAttribute("maxCapacity")
     public Integer getMaxCapacity() {
         return maxCapacity;
     }
@@ -55,6 +74,7 @@ public class Elective {
         this.maxCapacity = maxCapacity;
     }
 
+    @DynamoDbAttribute("capacity")
     public Integer getCapacity() {
         return capacity;
     }
@@ -62,7 +82,7 @@ public class Elective {
     public void setCapacity(Integer capacity) {
         this.capacity = capacity;
     }
-
+    @DynamoDbAttribute("description")
     public String getDescription() {
         return description;
     }
@@ -70,12 +90,29 @@ public class Elective {
     public void setDescription(String description) {
         this.description = description;
     }
-
-    public Set<Student> getEnrolledStudents() {
-        return enrolledStudents;
+    @DynamoDbAttribute("enrolledStudentIds")
+    public Set<String> getEnrolledStudentIds() {
+        return enrolledStudentIds;
     }
 
-    public void setEnrolledStudents(Set<Student> enrolledStudents) {
-        this.enrolledStudents = enrolledStudents;
+    public void setEnrolledStudentIds(Set<String> enrolledStudentIds) {
+        this.enrolledStudentIds = enrolledStudentIds;
+    }
+    @DynamoDbAttribute("version")
+    @DynamoDbVersionAttribute
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
+    }
+    @DynamoDbAttribute("allowedDepartments")
+    public Set<DepartmentName> getAllowedDepartments() {
+        return allowedDepartments;
+    }
+    public void setAllowedDepartments(Set<DepartmentName> allowedDepartments) {
+        this.allowedDepartments = allowedDepartments;
     }
 }

@@ -1,32 +1,28 @@
 package edu.kdkce.openelectivefcfs.src.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 
-@Entity
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
+
+
+@DynamoDbBean
+
 public class AllocationCycle {
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private Long id;
+    private String id;
     private String cycleName;
 
-    public AllocationCycle() {
-    }
 
-    public AllocationCycle(String cycleName) {
-        this.cycleName = cycleName;
-    }
-
-    public Long getId() {
+    @DynamoDbPartitionKey
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
+    @DynamoDbAttribute("cycleName")
     public String getCycleName() {
         return cycleName;
     }

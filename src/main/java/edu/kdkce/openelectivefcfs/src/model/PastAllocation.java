@@ -1,13 +1,17 @@
 package edu.kdkce.openelectivefcfs.src.model;
 
 import edu.kdkce.openelectivefcfs.src.enums.DepartmentName;
-import jakarta.persistence.*;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
 
-@Entity
+/**
+ * Represents a past allocation of an elective to a student.
+ * This class contains the details of the student, the elective, and the allocation cycle.
+ */
+@DynamoDbBean
 public class PastAllocation {
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private Long id;
+    private String id;
     private String studentName;
     private String rollNumber;
     private Long contactNumber;
@@ -16,22 +20,21 @@ public class PastAllocation {
 
     private String electiveName;
     private DepartmentName electiveDepartment;
-    @ManyToOne
-    @JoinColumn(name = "allocation_cycle_id")
-    private AllocationCycle allocationCycle;
+    private String allocationCycleId;
+
 
 
     //getter and setters
 
-
-    public Long getId() {
+    @DynamoDbPartitionKey
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
-
+    @DynamoDbAttribute("studentName")
     public String getStudentName() {
         return studentName;
     }
@@ -40,6 +43,7 @@ public class PastAllocation {
         this.studentName = studentName;
     }
 
+    @DynamoDbAttribute("rollNumber")
     public String getRollNumber() {
         return rollNumber;
     }
@@ -47,7 +51,7 @@ public class PastAllocation {
     public void setRollNumber(String rollNumber) {
         this.rollNumber = rollNumber;
     }
-
+    @DynamoDbAttribute("contactNumber")
     public Long getContactNumber() {
         return contactNumber;
     }
@@ -55,7 +59,7 @@ public class PastAllocation {
     public void setContactNumber(Long contactNumber) {
         this.contactNumber = contactNumber;
     }
-
+    @DynamoDbAttribute("mailId")
     public String getMailId() {
         return mailId;
     }
@@ -63,7 +67,7 @@ public class PastAllocation {
     public void setMailId(String mailId) {
         this.mailId = mailId;
     }
-
+    @DynamoDbAttribute("studentDepartment")
     public DepartmentName getStudentDepartment() {
         return studentDepartment;
     }
@@ -72,6 +76,7 @@ public class PastAllocation {
         this.studentDepartment = studentDepartment;
     }
 
+    @DynamoDbAttribute("electiveName")
     public String getElectiveName() {
         return electiveName;
     }
@@ -80,6 +85,7 @@ public class PastAllocation {
         this.electiveName = electiveName;
     }
 
+    @DynamoDbAttribute("electiveDepartment")
     public DepartmentName getElectiveDepartment() {
         return electiveDepartment;
     }
@@ -88,11 +94,12 @@ public class PastAllocation {
         this.electiveDepartment = electiveDepartment;
     }
 
-    public AllocationCycle getAllocationCycle() {
-        return allocationCycle;
+    @DynamoDbAttribute("allocationCycleId")
+    public String getAllocationCycleId() {
+        return allocationCycleId;
     }
 
-    public void setAllocationCycle(AllocationCycle allocationCycle) {
-        this.allocationCycle = allocationCycle;
+    public void setAllocationCycleId(String allocationCycleId) {
+        this.allocationCycleId = allocationCycleId;
     }
 }

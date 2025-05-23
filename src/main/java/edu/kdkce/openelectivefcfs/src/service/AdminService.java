@@ -1,26 +1,28 @@
 package edu.kdkce.openelectivefcfs.src.service;
 
 import edu.kdkce.openelectivefcfs.src.dto.*;
+import edu.kdkce.openelectivefcfs.src.enums.DepartmentName;
 import edu.kdkce.openelectivefcfs.src.model.*;
 import edu.kdkce.openelectivefcfs.src.repository.*;
-import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class AdminService {
     private final ElectiveRepository electiveRepository;
-    private final UserRepository userRepository;
+    private static final Logger log = LoggerFactory.getLogger(AdminService.class);
+    private final StudentRepository studentRepository;
     private final SettingsRepository settingsRepository;
     private final PastAllocationRepository pastAllocationRepository;
     private final AllocationCycleRepository allocationCycleRepository;
 
-    public AdminService(ElectiveRepository electiveRepository, UserRepository userRepository, SettingsRepository settingsRepository, PastAllocationRepository pastAllocationRepository, AllocationCycleRepository allocationCycleRepository) {
+    public AdminService(ElectiveRepository electiveRepository, StudentRepository studentRepository, SettingsRepository settingsRepository, PastAllocationRepository pastAllocationRepository, AllocationCycleRepository allocationCycleRepository) {
         this.electiveRepository = electiveRepository;
-        this.userRepository = userRepository;
+        this.studentRepository = studentRepository;
         this.settingsRepository = settingsRepository;
         this.pastAllocationRepository = pastAllocationRepository;
         this.allocationCycleRepository = allocationCycleRepository;
@@ -29,18 +31,22 @@ public class AdminService {
 
     public void addElective(CreatElectiveRequest electiveRequest) {
         Elective elective = new Elective();
+        elective.setId(UUID.randomUUID().toString());
         elective.setName(electiveRequest.name());
         elective.setDepartmentName(electiveRequest.department());
         elective.setMaxCapacity(electiveRequest.maxCapacity());
         elective.setCapacity(electiveRequest.maxCapacity());
         elective.setDescription(electiveRequest.description());
+        elective.setEnrolledStudentIds(null);
+        elective.setAllowedDepartments(electiveRequest.allowedDepartments());
         electiveRepository.save(elective);
     }
 
-    public void deleteElective(Integer id) {
+    public void deleteElective(String id) {
         electiveRepository.deleteById(id);
     }
-    public ElectiveResponse updateElective(Integer id, CreatElectiveRequest electiveRequest) {
+
+    public ElectiveResponse updateElective(String id, CreatElectiveRequest electiveRequest) {
         // Fetch the elective by name
         Elective elective = electiveRepository.findById(id).orElse(null);
         if (elective == null) {
@@ -60,9 +66,10 @@ public class AdminService {
         elective.setCapacity(Math.max(0, elective.getCapacity() + capacityDifference));
 
         elective.setDescription(electiveRequest.description());
+        elective.setAllowedDepartments(electiveRequest.allowedDepartments());
 
         // Save updated elective
-        electiveRepository.save(elective);
+        electiveRepository.update(elective);
         //convert to response
         return new ElectiveResponse(
                 elective.getId(),
@@ -73,6 +80,7 @@ public class AdminService {
                 elective.getDescription()
         );
     }
+
     public List<ElectiveResponse> getElectives() {
         List<Elective> electives = electiveRepository.findAll();
         return electives.stream().map(elective -> new ElectiveResponse(
@@ -86,6 +94,14 @@ public class AdminService {
 
     }
 
+    public Set<DepartmentName> allowedDepartments(String id) {
+        Elective elective = electiveRepository.findById(id).orElse(null);
+        if (elective == null) {
+            throw new RuntimeException("Elective not found");
+        }
+        return elective.getAllowedDepartments();
+    }
+
     public List<AdminPanelElectiveStatResponse> getDepartmentStats() {
         try{
             List<Elective> electives = electiveRepository.findAll();
@@ -95,7 +111,7 @@ public class AdminService {
                     elective.getName(),
                     elective.getMaxCapacity(),
                     elective.getCapacity(),
-                    elective.getMaxCapacity()-elective.getEnrolledStudents().size()
+                    elective.getMaxCapacity() - (elective.getEnrolledStudentIds() != null ? elective.getEnrolledStudentIds().size() : 0)
             )).toList();
 
         } catch (Exception e) {
@@ -105,43 +121,55 @@ public class AdminService {
     }
 
     public List<UserProfileResponse> getStudents() {
-        List<User> students = userRepository.findAll();
+
+        List<Student> students = studentRepository.findAll();
         // Filter out non-students
         return students.stream()
-                .filter(user -> user instanceof Student)
-                .filter(user -> ((Student) user).getEnabled())
-                .map(user -> {
-                    Elective elective = ((Student) user).getElective();
-                    ElectiveSelected electiveSelected = elective != null ? new ElectiveSelected(
-                            elective.getId(),
-                            elective.getName(),
-                            elective.getDepartmentName()
-                    ) : null;
+                .filter(Student::getIsEnabled)
+                .map(student -> {
+                    ElectiveSelected electiveSelected = null;
+                    if (student.getElectiveId() != null) {
+                        Elective elective = electiveRepository.getElectivesById(student.getElectiveId());
+                        if (elective != null) {
+                            electiveSelected = new ElectiveSelected(
+                                    elective.getId(),
+                                    elective.getName(),
+                                    elective.getDepartmentName()
+                            );
+                        }
+                    }
+
                     return UserProfileResponse.adminPanelStudentData(
-                            user.getId(),
-                            user.getName(),
-                            ((Student) user).getContactNumber(),
-                            ((Student) user).getRollNumber(),
-                            ((Student) user).getDepartment(),
-                            electiveSelected
+                            student.getId(),
+                            student.getName(),
+                            student.getContactNumber(),
+                            student.getRollNumber(),
+                            student.getDepartment(),
+                            electiveSelected,
+                            student.getClassRollNumber()
                     );
                 })
                 .toList();
     }
-    @Transactional
+
     public void resetAllocations(String cycleName) {
         try {
-            // Step 1: Get or create the AllocationCycle
-            AllocationCycle allocationCycle = allocationCycleRepository
-                    .findByCycleName(cycleName)
-                    .orElseGet(() -> {
-                        AllocationCycle newCycle = new AllocationCycle();
-                        newCycle.setCycleName(cycleName);
-                        return allocationCycleRepository.save(newCycle);
-                    });
+
+            // Step 1: Ensure unique cycle name
+            String uniqueCycleName = cycleName;
+            int suffix = 1;
+
+            while (allocationCycleRepository.findByCycleName(uniqueCycleName).isPresent()) {
+                uniqueCycleName = cycleName + "-" + suffix++;
+            }
+
+            AllocationCycle allocationCycle = new AllocationCycle();
+            allocationCycle.setId(UUID.randomUUID().toString());
+            allocationCycle.setCycleName(uniqueCycleName);
+            allocationCycle = allocationCycleRepository.save(allocationCycle);
 
             // Step 2: Prepare PastAllocations
-            List<Student> students = userRepository.findAllAllocatedStudents();
+            List<Student> students = studentRepository.findAllByElectiveIdIsNotNull();
             List<PastAllocation> pastAllocations = new ArrayList<>();
 
             for (Student student : students) {
@@ -152,25 +180,28 @@ public class AdminService {
                 pastAllocation.setMailId(student.getEmail());
                 pastAllocation.setStudentDepartment(student.getDepartment());
 
-                if (student.getElective() != null) {
-                    pastAllocation.setElectiveName(student.getElective().getName());
-                    pastAllocation.setElectiveDepartment(student.getElective().getDepartmentName());
+                if (student.getElectiveId() != null) {
+                    Optional<Elective> elective = electiveRepository.findById(student.getElectiveId());
+                    if (elective.isEmpty()) {
+                        log.warn("Skipping PastAllocation: Elective not found for student {}", student.getName());
+                        continue;
+                    }
+                    pastAllocation.setElectiveName(elective.get().getName());
+                    pastAllocation.setElectiveDepartment(elective.get().getDepartmentName());
                 }
 
-                pastAllocation.setAllocationCycle(allocationCycle);
+                pastAllocation.setAllocationCycleId(allocationCycle.getId());
                 pastAllocations.add(pastAllocation);
             }
 
             // Step 3: Save PastAllocations and reset everything
             pastAllocationRepository.saveAll(pastAllocations);
-            pastAllocationRepository.flush();
-
-            userRepository.resetStudentElectives();
-            userRepository.deleteAllStudents();
+            studentRepository.deleteAll();
 
             for (Elective elective : electiveRepository.findAll()) {
                 elective.setCapacity(elective.getMaxCapacity());
-                electiveRepository.save(elective);
+                elective.setEnrolledStudentIds(null);
+                electiveRepository.update(elective);
             }
 
         } catch (RuntimeException e) {
@@ -181,7 +212,7 @@ public class AdminService {
 
 
     public void updateElectiveTimeSettings(ElectiveTimeUpdateRequest electiveTimeUpdateRequest) {
-        Settings settings = settingsRepository.findById(1L).orElse(null);
+        Settings settings = settingsRepository.findById("1").orElse(null);
 
         // Ensure the timestamps are in IST before storing
         ZonedDateTime openingTimeIST = electiveTimeUpdateRequest.allocationStartDate().withZoneSameInstant(ZoneId.of("Asia/Kolkata"));
@@ -189,6 +220,7 @@ public class AdminService {
 
         if (settings == null) {
             Settings newSettings = new Settings();
+            newSettings.setId("1");
             newSettings.setElectiveClosingTime(closingTimeIST);
             newSettings.setElectiveOpeningTime(openingTimeIST);
             settingsRepository.save(newSettings);
@@ -197,11 +229,11 @@ public class AdminService {
 
         settings.setElectiveClosingTime(closingTimeIST);
         settings.setElectiveOpeningTime(openingTimeIST);
-        settingsRepository.save(settings);
+        settingsRepository.update(settings);
     }
 
     public ElectiveTimeResponse getElectiveTimeSettings() {
-        Settings settings = settingsRepository.findById(1L).orElse(null);
+        Settings settings = settingsRepository.findById("1").orElse(null);
 
         if (settings == null) {
             throw new RuntimeException("Settings not found");

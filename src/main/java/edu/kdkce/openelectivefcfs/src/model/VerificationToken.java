@@ -1,42 +1,39 @@
 package edu.kdkce.openelectivefcfs.src.model;
 
-import jakarta.persistence.*;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
+
+import edu.kdkce.openelectivefcfs.src.converter.LocalDateTimeConverter;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbConvertedBy;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
-@Entity
+@DynamoDbBean
 public class VerificationToken {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
+    private String id;
     private String token;
-
-    @OneToOne
-    @JoinColumn(name = "user_id")
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    private User user;
-
+    private String userId;
     private LocalDateTime expiryDate;
+
 
     public VerificationToken() {}
 
-    public VerificationToken(String token, User user, LocalDateTime expiryDate) {
+    public VerificationToken(String token, String userId, LocalDateTime expiryDate) {
+        this.id = UUID.randomUUID().toString();
         this.token = token;
-        this.user = user;
+        this.userId = userId;
         this.expiryDate = expiryDate;
     }
 
     // Getters & Setters
 
-
-    public Long getId() {
+    @DynamoDbPartitionKey
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -48,14 +45,15 @@ public class VerificationToken {
         this.token = token;
     }
 
-    public User getUser() {
-        return user;
+    public String getUserId() {
+        return userId;
     }
 
-    public void setUser(User user) {
-        this.user = user;
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
+    @DynamoDbConvertedBy(LocalDateTimeConverter.class)
     public LocalDateTime getExpiryDate() {
         return expiryDate;
     }

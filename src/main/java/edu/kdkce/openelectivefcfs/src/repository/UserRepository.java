@@ -1,29 +1,44 @@
 package edu.kdkce.openelectivefcfs.src.repository;
 
-import edu.kdkce.openelectivefcfs.src.model.Student;
 import edu.kdkce.openelectivefcfs.src.model.User;
-import jakarta.transaction.Transactional;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
+import software.amazon.awssdk.enhanced.dynamodb.Expression;
+import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
-public interface UserRepository extends JpaRepository<User, Long> {
+@Repository
+public class UserRepository  {
+    private final DynamoDbTable<User> table;
 
-    Optional<User> findByEmail(String email);
+    public UserRepository(DynamoDbEnhancedClient client) {
+        this.table = client.table("User", TableSchema.fromBean(User.class));
+    }
 
-    @Modifying(clearAutomatically = true)
-    @Transactional
-    @Query("DELETE FROM Student s")
-    void deleteAllStudents();
+    public Optional<User> findByEmail(String email) {
+        Expression filterExpression = Expression.builder()
+                .expression("email = :email")
+                .expressionValues(Map.of(":email", AttributeValue.builder().s(email).build()))
+                .build();
 
-    @Modifying
-    @Transactional
-    @Query("UPDATE Student s SET s.elective = null")
-    void resetStudentElectives();
+        User item = table.scan(r -> r.filterExpression(filterExpression))
+                .items().stream().findFirst().orElse(null);
+        return Optional.ofNullable(item);
+    }
 
-    @Query("SELECT s FROM Student s WHERE s.elective IS NOT NULL")
-    List<Student> findAllAllocatedStudents();
+    public Optional<User> findById(String userId) {
+        User item = table.getItem(r -> r.key(k -> k.partitionValue(userId)));
+        return Optional.ofNullable(item);
+    }
+
+    public void save(User user) {
+        table.putItem(user);
+    }
+    public void update(User user) {
+        table.updateItem(user);
+    }
 }

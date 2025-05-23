@@ -15,8 +15,9 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOriginPatterns(List.of("https://kdkce.openelective.click","https://*.lite.vusercontent.net", "https://*.ngrok-free.app"));
+        config.setAllowedOriginPatterns(List.of("https://kdkce.openelective.click","https://*.lite.vusercontent.net", "https://frank-bee-only.ngrok-free.app","https://v0-open-elective-fcfs-20ihgv76v.vercel.app"));
         config.setAllowedHeaders(List.of(
+
                 "Authorization",
                 "Content-Type",
                 "ngrok-skip-browser-warning" // Add this header

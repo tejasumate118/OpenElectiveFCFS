@@ -1,34 +1,34 @@
 package edu.kdkce.openelectivefcfs.src.model;
 
+import edu.kdkce.openelectivefcfs.src.converter.LocalDateTimeConverter;
 import edu.kdkce.openelectivefcfs.src.enums.Role;
-import jakarta.persistence.*;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbConvertedBy;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.Set;
 
-@Entity
-@Table(name = "users")
+@DynamoDbBean
 public class User {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+
+    private String id;
     private String name;
     private String email;
     private String password;
-    @ElementCollection(fetch = FetchType.EAGER)
     private Set<Role> roles;
-    @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    public Long getId() {
+    @DynamoDbPartitionKey
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
-
+    @DynamoDbAttribute("name")
     public String getName() {
         return name;
     }
@@ -36,7 +36,7 @@ public class User {
     public void setName(String name) {
         this.name = name;
     }
-
+    @DynamoDbAttribute("email")
     public String getEmail() {
         return email;
     }
@@ -45,6 +45,7 @@ public class User {
         this.email = email;
     }
 
+    @DynamoDbAttribute("password")
     public String getPassword() {
         return password;
     }
@@ -53,6 +54,7 @@ public class User {
         this.password = password;
     }
 
+    @DynamoDbAttribute("roles")
     public Set<Role> getRoles() {
         return roles;
     }
@@ -61,6 +63,8 @@ public class User {
         this.roles = roles;
     }
 
+    @DynamoDbAttribute("createdAt")
+    @DynamoDbConvertedBy(LocalDateTimeConverter.class)
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }

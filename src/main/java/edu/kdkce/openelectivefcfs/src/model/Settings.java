@@ -1,16 +1,22 @@
 package edu.kdkce.openelectivefcfs.src.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
+
 import java.time.ZonedDateTime;
+
 import java.time.ZoneId;
 
-@Entity
+/**
+ * Represents the settings for the Open Elective Allocation Portal.
+ * This class contains the opening and closing times for elective allocation.
+ */
+@DynamoDbBean
 public class Settings {
-    @Id
-    private Long id = 1L;
+    private String id = "1";
 
     private ZonedDateTime electiveOpeningTime;
+
     private ZonedDateTime electiveClosingTime;
 
     public Settings() {
@@ -34,5 +40,14 @@ public class Settings {
 
     public void setElectiveClosingTime(ZonedDateTime electiveClosingTime) {
         this.electiveClosingTime = electiveClosingTime;
+    }
+
+    @DynamoDbPartitionKey
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 }
