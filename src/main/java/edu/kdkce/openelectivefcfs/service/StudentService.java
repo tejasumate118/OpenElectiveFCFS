@@ -6,7 +6,6 @@ import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import edu.kdkce.openelectivefcfs.src.dto.*;
 import edu.kdkce.openelectivefcfs.enums.DepartmentName;
 import edu.kdkce.openelectivefcfs.model.Elective;
 import edu.kdkce.openelectivefcfs.model.Settings;

@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -21,10 +22,11 @@ import java.util.stream.Collectors;
 @Service
 public class JwtService {
 
+    @Value("${jwt.secret-key}")
     private String secretKey;
 
     public JwtService() {
-        this.secretKey ="WWoxmJA8/KgoTE0TgAtBw+i3BDK81Y7PvoYTx3d/dsKMWH3kr2QseYWU9RE=";
+
     }
 
     public String generateSecretKey() {

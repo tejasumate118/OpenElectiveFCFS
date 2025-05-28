@@ -16,11 +16,8 @@ import java.time.Duration;
 
 @Service
 public class S3Service {
-    @Value{"${S3_BUCKET_NAME})
-    String s3Bucket;
-
-
-    private final String bucketName = s3Bucket ;
+    @Value("${aws.s3.bucket-name}")
+    private String bucketName;
     private final S3Client s3Client;
     private final S3Presigner presigner;
 

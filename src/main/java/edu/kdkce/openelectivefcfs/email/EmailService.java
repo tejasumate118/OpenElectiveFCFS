@@ -2,6 +2,8 @@ package edu.kdkce.openelectivefcfs.email;
 
 import edu.kdkce.openelectivefcfs.model.Student;
 import edu.kdkce.openelectivefcfs.model.User;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.sqs.SqsClient;
@@ -16,10 +18,11 @@ public class EmailService {
     @Value("${frontend.url}")
     private String frontendUrl;
 
-    @Value("${aws.sqs.queueUrl}")
+    @Value("${aws.sqs.emailQueueUrl}")
     private String queueUrl;  // SQS Queue URL
 
     private final SqsClient sqsClient;
+    private final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
     public EmailService(SqsClient sqsClient) {
         this.sqsClient = sqsClient;
@@ -130,7 +133,8 @@ public class EmailService {
             sqsClient.sendMessage(sendMessageRequest);
         } catch (Exception e) {
             // Handle or log the exception as needed
-            e.printStackTrace();
+            logger.info("Error pushing mail into queue:  {}",e.getMessage());
+
         }
     }
 }

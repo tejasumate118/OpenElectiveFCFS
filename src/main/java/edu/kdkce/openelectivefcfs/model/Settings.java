@@ -13,7 +13,7 @@ import java.time.ZoneId;
  */
 @DynamoDbBean
 public class Settings {
-    private String id = "1";
+    private String id;
 
     private ZonedDateTime electiveOpeningTime;
 

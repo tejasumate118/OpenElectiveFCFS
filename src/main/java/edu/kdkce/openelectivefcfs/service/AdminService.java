@@ -3,10 +3,7 @@ package edu.kdkce.openelectivefcfs.service;
 import edu.kdkce.openelectivefcfs.dto.*;
 import edu.kdkce.openelectivefcfs.model.*;
 import edu.kdkce.openelectivefcfs.repository.*;
-import edu.kdkce.openelectivefcfs.src.dto.*;
 import edu.kdkce.openelectivefcfs.enums.DepartmentName;
-import edu.kdkce.openelectivefcfs.src.model.*;
-import edu.kdkce.openelectivefcfs.src.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -244,7 +241,6 @@ public class AdminService {
 
         // Define time zones
         ZoneId istZone = ZoneId.of("Asia/Kolkata");
-        ZoneId utcZone = ZoneId.of("UTC"); // Change if your DB stores in a different time zone
 
         // Convert LocalDateTime to ZonedDateTime by assuming it is in UTC
         ZonedDateTime openingTimeIST = settings.getElectiveOpeningTime().withZoneSameInstant(istZone);

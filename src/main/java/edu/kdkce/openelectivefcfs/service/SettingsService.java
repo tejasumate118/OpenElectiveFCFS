@@ -38,4 +38,5 @@ public class SettingsService {
         settings.setElectiveClosingTime(request.allocationEndDate());
         settingsRepository.update(settings);
     }
+
 }
