@@ -20,7 +20,7 @@ public class CorsConfig {
 
                 "Authorization",
                 "Content-Type",
-                "ngrok-skip-browser-warning" // Add this header
+                "ngrok-skip-browser-warning" // Added this header cuz I used ngrok while testing.
         ));
         config.setAllowedMethods(List.of("OPTIONS", "GET", "POST", "PUT", "DELETE", "PATCH"));
 
